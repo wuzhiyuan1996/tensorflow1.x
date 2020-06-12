@@ -1,0 +1,37 @@
+helper
+attentionWrapper
+装饰器
+
+
+在使用训练好的RNN（训练的时候是使用多项式分布吗？好像也使用）生成文本时，并不是将出现概率最大的那个值取出，
+而是以分布取样的方式预测词向量，这样生成的句子更符合语言的特性。
+
+因此，在RNN模型中，预测的结果不再是选择出现概率最大的值，而是获得关于整个vocabulary的多项式分布后（通过全连接层或者卷积，是最后的神经元维度等于vocabulary的大小），
+在该分布下进行采样，得到一个具体的词。
+
+
+
+果欠佳原因在这里
+
+在训练阶段的decoder，是将目标样本["吃","兰州","拉面"]作为输入下一个预测分词的输入。
+而在预测阶段的decoder,是将上一个预测结果，作为下一个预测值的输入。（注意查看预测多的箭头）
+这个差异导致了问题的产生，训练和预测的情景不同。
+在预测的时候，如果上一个词语预测错误，还后面全部都会跟着错误，蝴蝶效应。
+scheduled-sampling
+修改训练时decoder的模型
+基础模型只会使用真实lable数据作为输入， 现在，train-decoder不再一直都是真实的lable数据作为下一个时刻的输入。
+train-decoder时以一个概率P选择模型自身的输出作为下一个预测的输入,以1-p选择真实标记作为下一个预测的输入。
+Secheduled sampling(计划采样)，即采样率P在训练的过程中是变化的。
+一开始训练不充分，先让P小一些，尽量使用真实的label作为输入，随着训练的进行，将P增大，多采用自身的输出作为下一个预测的输入。
+随着训练的进行，P越来越大大，train-decoder模型最终变来和inference-decoder预测模型一样，消除了train-decoder与inference-decoder之间的差异
+
+
+Construct the AttentionWrapper.
+NOTE If you are using the BeamSearchDecoder with a cell wrapped in AttentionWrapper, then you must ensure that:
+The encoder output has been tiled to beam_width via tf.contrib.seq2seq.tile_batch (NOT tf.tile).
+The batch_size argument passed to the zero_state method of this wrapper is equal to true_batch_size * beam_width.
+The initial state created with zero_state above contains a cell_state value containing properly tiled final state from the encoder.
+
+
+自定义estimator
+
